@@ -1,0 +1,28 @@
+{
+    "id": "2C841A5E",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1767797476956.0,
+    "source_on_save": false,
+    "relative_order": 12,
+    "properties": {
+        "id": "695b8587d44242999740f6d039b4f85e",
+        "name": "dict_frame",
+        "title": "dict_frame",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 846373841267936,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1767797476956,
+    "read_only": false,
+    "read_only_alternatives": []
+}

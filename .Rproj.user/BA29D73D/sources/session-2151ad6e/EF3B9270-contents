@@ -1,0 +1,207 @@
+# 0.1 install各种库
+install.packages(c(
+  "manifestoR",
+  "dplyr", "tidyr", "stringr",
+  "quanteda", "quanteda.textstats", "quanteda.textplots",
+  "ggplot2"
+))
+
+# 0.2 加载
+library(manifestoR)
+library(dplyr)
+library(stringr)
+library(quanteda)
+library(ggplot2)
+
+# 0.3  Manifesto Project API key
+mp_setapikey("manifesto_apikey.txt")
+
+# 1.1 拉取英国文档元数据（这是“有哪些文档”）
+meta_uk <- mp_metadata(countryname == "United Kingdom")
+
+# 1.2 过滤：优先用英文翻译可用的（translation_en==TRUE），或原文就是英文
+wanted_uk <- meta_uk %>%
+  filter(translation_en == TRUE | language == "english") %>%
+  select(party, date, manifesto_id, language, translation_en, annotations)
+
+###下载文本
+# 2.1 下载：用英文版本
+uk_qs <- mp_corpus_df(meta_uk)
+
+# 2.2 拼成文档级（每个 manifesto_id 一行）
+uk_doc <- uk_qs %>%
+  group_by(manifesto_id, party, date) %>%
+  summarise(text = paste(text, collapse = " "), .groups = "drop") %>%
+  mutate(
+    year = as.integer(substr(as.character(date), 1, 4))
+  )
+
+### 加入党名
+mpds <- mp_maindataset()
+
+uk_party_labels <- mpds %>%
+  filter(countryname == "United Kingdom") %>%
+  select(party, date, partyname, partyabbrev) %>%
+  distinct()
+
+uk_doc <- uk_doc %>%
+  left_join(uk_party_labels, by = c("party", "date"))
+
+uk_doc <- uk_doc %>%
+  mutate(
+    partyabbrev = ifelse(is.na(partyabbrev) | partyabbrev == "",
+                         partyname,   # 或者用 partyname
+                         partyabbrev)
+  )
+
+
+##建语料库--分析
+uk_doc <- uk_doc %>% mutate(manifesto_id = as.character(manifesto_id))
+corp <- corpus(uk_doc, text_field = "text", docid_field = "manifesto_id")
+docvars(corp, "party") <- uk_doc$party
+docvars(corp, "partyabbrev") <- uk_doc$partyabbrev
+docvars(corp, "partyname") <- uk_doc$partyname
+docvars(corp, "year") <- uk_doc$year
+
+toks <- tokens(
+  corp,
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = FALSE
+) %>%
+  tokens_tolower()
+
+# 复合短语：把 "climate change" 变成单 token：climate_change
+toks <- tokens_compound(
+  toks,
+  pattern = phrase(c("climate change", "net zero", "energy transition", "green transition")),
+  concatenator = "_"
+)
+
+##绿色窗口的设立
+target_terms <- c(
+  "climate_change",
+  "net_zero",
+  "emissions",
+  "carbon",
+  "renewable*",
+  "green",
+  "energy_transition",
+  "green_transition"
+)
+
+# 4.1 设窗口大小（你可以改成 20）
+W <- 10
+
+toks_green <- tokens_select(
+  toks,
+  pattern = target_terms,
+  selection = "keep",
+  window = W,
+  padding = TRUE   # 保持窗口位置（便于理解“窗口”）
+)
+
+# 去掉 padding 产生的空 token（不同版本可能表现略不同，稳妥起见做一次清理）
+toks_green <- tokens_remove(toks_green, pattern = "", valuetype = "fixed")
+
+##Attention proxy
+att_df <- data.frame(
+  manifesto_id = docnames(toks),
+  all_tokens   = ntoken(toks),
+  green_tokens = ntoken(toks_green)
+) %>%
+  mutate(attention = green_tokens / all_tokens)
+
+##LSD 
+# 6.1 把绿色窗口变成 dfm
+dfm_green <- dfm(toks_green)
+
+# 6.2 LSD 词典 lookup
+dict_lsd <- data_dictionary_LSD2015
+dfm_lsd <- dfm_lookup(dfm_green, dictionary = dict_lsd)
+
+# 6.3 提取计数（转成 data.frame）
+lsd_counts <- convert(dfm_lsd, to = "data.frame")
+
+# 6.4 组装 pos/neg（按上面的合并逻辑）
+sent_df <- lsd_counts %>%
+  transmute(
+    manifesto_id = doc_id,
+    pos = positive + neg_negative,
+    neg = negative + neg_positive
+  ) %>%
+  mutate(
+    net_sent = ifelse((pos + neg) == 0, NA, (pos - neg) / (pos + neg)),
+    pos_neg_ratio = ifelse(neg == 0, NA, pos / neg)
+  )
+#Framing
+dict_frame <- dictionary(list(
+  opportunity = c("job*", "innov*", "invest*", "growth", "industry*", "technology*", "productiv*"),
+  cost        = c("cost*", "bill*", "tax*", "burden*", "price*", "expens*")
+))
+
+dfm_frame <- dfm_lookup(dfm_green, dictionary = dict_frame)
+frame_counts <- convert(dfm_frame, to = "data.frame") %>%
+  transmute(
+    manifesto_id = doc_id,
+    opp = opportunity,
+    cost = cost
+  ) %>%
+  mutate(
+    frame_total = opp + cost,
+    opp_share = ifelse(frame_total == 0, NA, opp / frame_total),
+    cost_share = ifelse(frame_total == 0, NA, cost / frame_total)
+  )
+
+##合并所有指标
+
+doc_level <- uk_doc %>%
+  select(manifesto_id, party, partyabbrev, partyname, year) %>%
+  left_join(att_df,  by = "manifesto_id") %>%
+  left_join(sent_df, by = "manifesto_id") %>%
+  left_join(frame_counts, by = "manifesto_id")
+
+party_year <- doc_level %>%
+  group_by(partyabbrev, partyname, year) %>%
+  summarise(
+    # attention：平均（也可以用 sum(green_tokens)/sum(all_tokens)）
+    attention = sum(green_tokens, na.rm = TRUE) / sum(all_tokens, na.rm = TRUE),
+    
+    pos = sum(pos, na.rm = TRUE),
+    neg = sum(neg, na.rm = TRUE),
+    net_sent = ifelse((pos + neg) == 0, NA, (pos - neg) / (pos + neg)),
+    
+    opp = sum(opp, na.rm = TRUE),
+    cost = sum(cost, na.rm = TRUE),
+    opp_share = ifelse((opp + cost) == 0, NA, opp / (opp + cost)),
+    cost_share = ifelse((opp + cost) == 0, NA, cost / (opp + cost)),
+    .groups = "drop"
+  )
+##drawing
+#1.Net sentiment over time
+
+ggplot(party_year, aes(x = year, y = net_sent, color = partyabbrev)) +
+  geom_line() +
+  geom_point(size = 1) +
+  labs(x = "Year", y = "Net sentiment (LSD)", color = "Party") +
+  theme_minimal()
+
+#2. Attention over time
+
+ggplot(party_year, aes(x = year, y = attention, color = partyabbrev)) +
+  geom_line() +
+  geom_point(size = 1) +
+  labs(x = "Year", y = "Attention (green window tokens / all tokens)", color = "Party") +
+  theme_minimal()
+
+# 以 climate_change 为例
+kw <- kwic(toks, pattern = "climate_change", window = 10)
+
+# 看前 20 条（课堂展示通常够用了）
+head(kw, 20)
+
+#bert实验
+
+#git
+install.packages("usethis")
+library(usethis)

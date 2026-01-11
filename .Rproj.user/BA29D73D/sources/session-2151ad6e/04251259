@@ -1,0 +1,28 @@
+{
+    "id": "04251259",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1767797536349.0,
+    "source_on_save": false,
+    "relative_order": 13,
+    "properties": {
+        "id": "bd229a95ab1b4abd9b893140ecd7ed9d",
+        "name": "dfm_green",
+        "title": "dfm_green",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 846374034785840,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1767797536349,
+    "read_only": false,
+    "read_only_alternatives": []
+}

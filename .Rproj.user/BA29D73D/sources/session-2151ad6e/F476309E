@@ -1,0 +1,28 @@
+{
+    "id": "F476309E",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1767797526375.0,
+    "source_on_save": false,
+    "relative_order": 15,
+    "properties": {
+        "id": "e7ec175b0c454e69880e07580ad2dc3e",
+        "name": "dict_lsd",
+        "title": "dict_lsd",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1949185127336,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1767797526375,
+    "read_only": false,
+    "read_only_alternatives": []
+}

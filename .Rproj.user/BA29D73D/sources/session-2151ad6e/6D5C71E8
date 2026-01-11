@@ -1,0 +1,28 @@
+{
+    "id": "6D5C71E8",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1767797533613.0,
+    "source_on_save": false,
+    "relative_order": 11,
+    "properties": {
+        "id": "a22ad080df144e55b39eade5b351fd21",
+        "name": "dfm_lsd",
+        "title": "dfm_lsd",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1949185127336,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1767797533613,
+    "read_only": false,
+    "read_only_alternatives": []
+}
